@@ -1,0 +1,271 @@
+---
+title: "STA130 Project"
+author: "Garv Sood, Anita Hessami Pilehrood, Aryan Kishan, Project Group 76"
+date: "December 7, 2020"
+output:
+  beamer_presentation:
+    theme: Pittsburgh
+    colortheme: orchid
+    fonttheme: structurebold
+    slide_level: 2
+  slidy_presentation: default
+subtitle: 'STA130 : An Introduction to Statistical Reasoning and Data Science'
+header-includes: \usepackage{multicol}
+---
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# echo=FALSE will stop the code chunk from appearing in the knit document
+# warning=FALSE and message=FALSE will stop R messages from appearing in the knit document
+library(tidyverse)
+
+# the data is not in the csv form we usually use, but in an R format, .rds.
+# the following line saves it as ces19 and you can work with it as you're used to now
+ces19 <- readRDS("ces19.rds")
+
+
+# see the project information page for more information: https://q.utoronto.ca/courses/184002/pages/project
+
+
+```
+
+
+
+## Project Introduction
+
+For this project, we will be acting as advisers for one of Canada's largest federal political party -- The Liberal Party of Canada. Through three research questions, we aim to cover the broad theme of “providing insights about voter opinions about their party and party leader, with a focus on voter demographics”.
+
+In all three research question, we make use of different statistical methods to provide the Liberal Party insight about voter opinions on various aspects of their party. These range from using bootstrapping and sampling distributions to create a confidence interval in the first question, two variable hypothesis testing in the second and finally, linear regression in the last. 
+
+Lastly, our primary objective is to use these statistical methods and data wrangling to produce interesting and useful results and conclusions.
+
+
+## Introduction and Objectives (Research Question 1)
+
+The low percent of voter turnout (shown in Table 1) during the 2000-2019 Canadian federal elections, has become a source of concern to the academic community, the media and the attentive members of the general public.
+This trend of low voter turnout can cause the Liberal Party to lose eligible liberal voters. Therefore, this part of the presentation explores the following research question: 
+What is the range of values for the proportion of liberal supporters that don't think voting is a duty?
+
+#### Table 1. Voter Turnout at Federal Elections 2011-2019
+| Election Year |Population | Total ballots cast | Voter turnout (%) |
+|---------------|-----------|--------------------|-------------------|
+| 2011          |33,476,688 |     14,823,408     |        61.1       |
+| 2015          |33,476,688 |     17,711,983     |        68.3       |
+| 2019          |35,151,728 |     18,350,359     |        67.0       |
+
+
+## Statistical Method
+The *duty_choice* variable represents the sample's view on voting being an obligatory duty. The *fed_id* variable represents the political party the individuals in the sample associate with.
+
+Using the *fed_id* and *duty_choice* variable, the proportion of liberal supporters in the sample who don’t believe that voting is first and foremost a duty is calculated. This proportion is the test statistic for this sample. 
+
+Then, the bootstrapping method was implemented to create a sampling distribution by resampling the sample with replacement while keeping the same sample size. 
+
+Next, the 95% confidence interval, which is the middle 95% of values of the bootstrap statistics, was taken to make an inference about a range of plausible values for the proportion of Liberal supporters that view voting as a choice and not an obligatory duty.
+
+
+## Results
+The table below shows the 2.5th and 97.5th percentile. Therefore, the 95% confidence interval for the population parameter is (0.2594359, 0.2751418). The histogram below shows the bootstrap distribution for the proportion of Liberal supporters who don't view voting as a duty. The red lines in the histogram show the 95% confidence interval for the proportion that don’t view voting as an obligatory duty.
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+liberal <- ces19 %>% filter(fed_id == "Liberal")
+
+test_stat <- as.numeric(liberal %>%
+                          filter(duty_choice != "Duty") %>%
+                          summarise(n()))/12161
+```
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+set.seed(962) # change to the last three digits of your student number
+
+repetitions <- 1000
+sample_size <- 12161
+boot_p <- rep(NA, 1000)  # where we'll store the bootstrap proportions
+for (i in 1:1000)
+{
+  boot_samp <- liberal %>% sample_n(size = 12161, replace=TRUE)
+  boot_p[i] <- as.numeric(boot_samp %>% 
+                            filter(duty_choice != "Duty") %>% 
+                            summarize(n()))/12161
+}
+
+boot_p <- tibble(prop = boot_p)
+
+ggplot(boot_p, aes(x=prop)) + geom_histogram(bins=20, fill="gray", color="black") + 
+  geom_vline(xintercept = quantile(boot_p$prop, c(0.025,0.975)), color="red" )+
+  labs(x="Proportions of Liberals who view voting as a choice", y="No. of Occurences")
+
+quantile(boot_p$prop, c(0.025,0.975))
+
+
+```
+
+
+## Conclusion
+
+We are 95% confident that between 25% and 27% of all Liberals in the population don't view voting as an obligatory duty. 
+This range of values along with the confidence level can inform the liberal party about the eligible liberal voters that might not vote during this election. This concerns the Liberal Party since they might be losing supporting votes. These observations can help the liberal party to deduce how much more they need to advertise, encourage and remind their supporters to come
+out and vote.
+
+
+
+
+## Introduction and Objectives (Research Question 2)
+
+
+**Research Question**: Are the median party ratings given by males same as the median party ratings given by females for the *Liberal Party*. 
+
+ 
+ - The Liberal Party of Canada is identified as a centre-left leaning party. They are strongly supportive of unrestricted abortion, social reform, LGBT rights and high rates of immigration.
+ - My research question assesses the party and policy preferences of males and females. If women tend to give higher ratings to the Liberal party, it would mean that they believe in the policies of a Left leaning party. 
+ - It is used to analyze the 'gender gap' i.e. the consistent difference in party and policy preferences of men and women.
+ - It reflects on what type of governance each of the them prefer. Political parties can take note of these findings and understand voters better.
+ 
+## Hypotheses Test Statement
+\begin{block}{Hyphotheses}
+Null Hypothesis: There is no difference between the median party ratings given by males and the median party ratings given by females for the Liberal Party.
+$$H_0: median_{Males} = median_{Females}$$
+Alternative Hypothesis: There is a difference between median party ratings given by males and the median party ratings given by females for the Liberal Party.
+$$H_1: median_{Males} \neq median_{Females}$$
+\end{block}
+where $median_{Males}$ is the median party rating of the Liberal Party given by males and $median_{Females}$ is the median party rating of the Liberal Party given by females.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+var_liberal <- ces19 %>%
+  filter(gender == "A man" | gender == "A woman") %>%
+  filter(!is.na(party_rating_23))
+```
+
+
+## Statistical Method
+
+
+ - I used Randomization test (2 group hypothesis test) to analyse the data. Assuming that the null hypothesis is true (no real difference between the 2 treatment groups), using R I randomly reassigned each person to a treatment group (male or female) assuming that they keep the same score. 
+ - I used the party_ratings_23 variable to get the party ratings of Liberal Party and used the gender variable to group the population based on gender.
+
+
+## Results
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=1.25, fig.width= 1.25, include = FALSE}
+var_liberal %>%
+ ggplot(aes(x = gender, y= party_rating_23)) +
+        geom_boxplot(colour = "black", fill = "gray") +theme(text = element_text(size=6)) + labs(y = "Party Ratings: Liberal Party", x = "Gender ") + ggsave("figure1.png", height=1.25, width=1.25, units="in")
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+test_stat <- var_liberal %>%
+  group_by(gender) %>%
+  summarise(medians = median(party_rating_23)) %>%
+  summarise(value = diff(medians))
+test_stat <- as.numeric(test_stat)
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(210)
+repetitions <- 1000
+simulated_values <- rep(NA, repetitions)
+for(i in 1:repetitions){
+  sim_data <- var_liberal %>%
+    mutate(gender = sample(gender))
+  sim_value <- sim_data %>%
+    group_by(gender) %>%
+    summarise(medians = median(party_rating_23)) %>%
+    summarise(value = diff(medians))
+  simulated_values[i] <- as.numeric(sim_value)
+}
+sim <- tibble(median_diff = simulated_values)
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=2, fig.width = 2.5, include = FALSE}
+sim %>%
+  ggplot(aes(x = median_diff)) + geom_histogram(binwidth = 1) +
+  geom_vline(xintercept = abs(test_stat), colour = "red") + geom_vline(xintercept = -abs(test_stat), colour = "blue") +
+  labs(y = "No. of Occurences", x = "Diff in Median ratings by men and women") +
+  theme(text = element_text(size=7.5)) + ggsave("figure2.png", height=2, width=2.5, units="in")
+```
+\begin{multicols}{2}
+
+  \null \vfill
+  \includegraphics[width=.25\textwidth]{figure1.png}
+  \newline
+  The boxplot above shows that the median party ratings given by women are slightly larger than those given by men.
+  \vfill \null
+
+\columnbreak
+
+  \null \vfill
+  \includegraphics[width=.35\textwidth]{figure2.png}
+  \newline
+  The p-value is zero in this case. Analyzing the p-value calculated, we can conclude that there is very strong evidence against the fact that there is no difference in median party ratings given to the Liberal party by men and  women. 
+  \vfill \null
+\end{multicols}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+num_more_extreme <- sim %>% filter(abs(median_diff) >= abs(test_stat)) %>% summarise(n())
+p_value <- as.numeric(num_more_extreme / repetitions)
+
+```
+
+```{r}
+p_value
+```
+
+## Conclusion
+
+
+ - This makes it clear that there is a difference of political preferences between men and women. Women preferring the Liberal party means that women are more likely to support a left leaning party as compared to men. This means that women on average are in favour of policies such as wanting gun control, unfavourable views towards dead penalty, not wanting excessive use of military force and wanting more welfare and progressive policies (based on the ideals of left-wing politics). 
+
+## Introduction and Objectives (Research Question 3)
+
+For the third part of this project, we will be working to answer the research question "Is there an association between the favourability of Prime Minister Justin Trudeau and the favourability of the Liberal Party for young voters 
+(18-25 years)".
+
+To answer this question, we will be using data regarding the age of the voter, their favourability towards the liberal party, and their favourability towards Justin Trudeau (all three presented in numerical form).
+
+The main objective of this research question is to investigate whether there is a correlation between favourability for the Liberal Party and the favourability 
+for Justin Trudeau amongst the young voters of Canada. The existence of an association between these two variables would mean that we can predict how likely a voter is to vote for the Liberal Party in the Federal Elections, based on how much they like Justin Trudeau. 
+
+## Statistical Method and Results 
+
+**Statistical Method**
+
+For this question, we used data regarding party ratings for the Liberal Party and lead ratings for Justin Trudeau to create a scatterplot, which shows the association between these two numerical variables. Furthermore, to make the clearly show to display the association, we have also added a fitted regression line to the plot.
+
+**Result**
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE,fig.height=3.5}
+ ces19 %>% filter(age<25 & age>=18) %>% 
+  ggplot(aes(x = lead_rating_23, y = party_rating_23)) + geom_point() +
+  labs(x = "Favourability Towards Justin Trudeau (0-100)",
+       y = "Favourability Toward Liberal Party (0-100)") + 
+  geom_smooth(method = "lm", se = FALSE) 
+
+```
+
+## Conclusion
+
+As we can see from the scatterplot, there is clearly a positive linear association between "favourability Towards Justin Trudeau" and "favourability Towards the Liberal Party" for the young voters (18-25) of Canada. Although there are a number of outliers, we can say that this association is of moderate strength.
+
+For the Liberal Party, the main takeaway from this should be as more and more people start liking Justin Trudeau more (the support for Trudeau increases), more people start voting for the Liberal party (The support for the Liberal Party increases). Thus, we can say that an increased favourability towards Trudeau has a positive influence on the voter outcomes for the Liberal Party among young people. The party can take advantage of this fact by spending more time and money creating a positive image of the Prime Minister, and increasing his interaction with the voters. 
+
+## Project Limitations 
+The 2019 Canadian Election Survey may have had limited ability to gain access to the appropriate geographical scope of participants. In this case, the people who responded to the survey may not truly be a random sample, and therefore do not reflect the general population of Canada. This leads to a biased sample which affects the results and significance of the research findings. For example, if the sample is biased, then the bootstrap confidence level will also be biased. 
+
+There may also be unaccounted variables that limit the thorough analysis of the research questions. For example, in the second research question, beyond gender, other characteristics of an individual (such as age, race, etc.) influence their political views and hence their rating of a political party. Therefore, there’s a need for further clarification and research on how different characteristics, other than gender, can infer someone’s political views. 
+
+
+## Project Conclusion
+ - First, we conclude that we are 95% confident that around 26% of all liberal supporters do not think of voting as an obligatory duty.  
+ - The second research question brings us to the conclusion that there is a difference in political preferences of males and females. 
+ - In the last research question, we observe a moderate positive linear association between favourability towards Justin Trudeau and favourability towards the liberal party among young voters of Canada. 
+ - The Liberal party can better understand voter demographics and opinions  with the help of these research questions and can restructure their policies and make sure it has the support of the people of Canada.
+
+## References and Acknowledgements 
+
+Home. (1970, December 01). Retrieved from https://www.elections.ca/content.aspx?section=ele&dir=turn&document=index&lang=e 
+
+*The authors would like to thank Adele Carty, Lee Radigan, and Amar Dholakia for helpful suggestions and comments that improved this project.*
+
+
+
