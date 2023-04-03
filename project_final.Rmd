@@ -24,8 +24,6 @@ library(tidyverse)
 ces19 <- readRDS("ces19.rds")
 
 
-# see the project information page for more information: https://q.utoronto.ca/courses/184002/pages/project
-
 
 ```
 
